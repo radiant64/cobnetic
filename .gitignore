@@ -1,0 +1,7 @@
+# Generated example site.
+example/site
+
+# Vim litter.
+*~
+.*.sw?
+

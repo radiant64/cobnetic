@@ -1,0 +1,85 @@
+#!/bin/sh
+#! vim: syntax=sh
+
+CBN_SITERULES=${CBN_SITECONFIG:-cobnetic-site.rules}
+. ./"$CBN_SITERULES"
+
+log() {
+    [ ! -n "$CBN_SILENT" ] && printf "$1"
+}
+log "Read site rules from '$CBN_SITERULES'.\n"
+
+CBN_STATIC=${CBN_STATIC:-static}
+CBN_OUTPUTPATH=${CBN_OUTPUTPATH:-site}
+CBN_PAGES=${CBN_PAGES:-pages}
+CBN_TEMPLATES=${CBN_TEMPLATES:-templates}
+
+CBN_VARS="$CBN_VARS\
+    CBN_SITETITLE\
+    CBN_PAGETITLE\
+    CBN_DESCRIPTION\
+    CBN_PAGES\
+    CBN_MARKDOWNCONTENT\
+    CBN_STATIC\
+    CBN_OUTPUTPATH"
+
+enumerate() {
+    for p in "${CBN_PAGES}"/*.md.m4
+    do
+        echo $p
+    done
+}
+
+get_pagetitle() {
+    echo "$(awk 'NR==1' "$1")"
+}
+
+get_template() {
+    echo "${CBN_TEMPLATES}/$(awk 'NR==2' "$1")".html.m4
+}
+
+var2m4() {
+    echo "define(?:}$1{:?,?:}?:}$(eval echo \"\$$1\"){:?{:?)"
+}
+
+m4preamble() {
+    printf "changequote(?:},{:?)dnl\n"
+    for e in $CBN_VARS 
+    do
+        printf "$(var2m4 $e)dnl\n"
+    done
+}
+
+CBN_PAGES="$(enumerate)"
+
+log "Generating website in folder '$CBN_OUTPUTPATH'.\n\n"
+
+echo "$CBN_PAGES" | while read page
+do
+    log "Processing page '$page'... "
+    CBN_PAGETITLE="$(get_pagetitle "$page")"
+    CBN_MARKDOWNCONTENT="$(awk 'NR>3' "$page" | markdown -f fencedcode)"
+    
+    template="$(m4preamble)\n?:}$(cat "$(get_template "$page")"){:?"
+
+    rel_name="${page#$CBN_PAGES/}"
+    out_dir="$CBN_OUTPUTPATH/${rel_name%%[!/]*}"
+    out_dir="${out_dir%/}"
+    out_name="$(basename "$page"|cut -d. -f1).html"
+
+    mkdir -p "$out_dir"
+    echo "$template" | m4 >"$out_dir/$out_name"
+    log "OK!\n"
+    log "\tOutput: '$out_dir/$out_name'\n"
+done
+
+if [ -e "$CBN_STATIC" ] 
+then
+    log "\nMoving static files in '$CBN_STATIC'...\n\n"
+    mv "$CBN_STATIC"
+else
+    log "\nNo static file directory found, skipping.\n\n"
+fi
+
+log "All done.\n"
+

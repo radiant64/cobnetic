@@ -1,0 +1,22 @@
+# Example site rules for Cobnetic.
+#! vim: syntax=sh
+
+CBN_SITETITLE="Example Site"
+CBN_DESCRIPTION="An example site for the cobnetic static website generator."
+
+HEADER="<h1>$CBN_SITETITLE</h1><hr>"
+FOOTER="Generated on $(date --rfc-3339=seconds)"
+
+MENU0_TITLE="Main"
+MENU0_URL="index.html"
+MENU1_TITLE="Another page"
+MENU1_URL="another.html"
+
+CBN_VARS="\
+    HEADER\
+    FOOTER\
+    MENU0_TITLE\
+    MENU0_URL\
+    MENU1_TITLE\
+    MENU1_URL"
+
