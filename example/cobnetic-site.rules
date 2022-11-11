@@ -7,16 +7,16 @@ CBN_DESCRIPTION="An example site for the cobnetic static website generator."
 HEADER="<h1>$CBN_SITETITLE</h1><hr>"
 FOOTER="Generated on $(date --rfc-3339=seconds)"
 
-MENU0_TITLE="Main"
-MENU0_URL="index.html"
-MENU1_TITLE="Another page"
-MENU1_URL="another.html"
+MAIN_NAV0_TITLE="Main"
+MAIN_NAV0_URL="index.html"
+MAIN_NAV1_TITLE="Another page"
+MAIN_NAV1_URL="another.html"
 
 CBN_VARS="\
     HEADER\
     FOOTER\
-    MENU0_TITLE\
-    MENU0_URL\
-    MENU1_TITLE\
-    MENU1_URL"
+    MAIN_NAV0_TITLE\
+    MAIN_NAV0_URL\
+    MAIN_NAV1_TITLE\
+    MAIN_NAV1_URL"
 

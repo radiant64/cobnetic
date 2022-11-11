@@ -1,0 +1,31 @@
+<:p:>
+render_menu() {
+    index=0
+    while [ "$(eval echo \$$1${index}_TITLE)" ]
+    do
+        title=$(eval echo \$$1${index}_TITLE)
+        url=$(eval echo \$$1${index}_URL)
+        echo "<li><a href=\"$url\">$title</a></li>"
+        index=$(expr $index + 1)
+    done
+}
+<:x:><!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title><:p:>printf $CBN_SITETITLE
+        [ -n "$CBN_PAGETITLE" ] && printf " - $CBN_PAGETITLE"
+        <:x:></title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="description" content="<:p:>echo $CBN_DESCRIPTION<:x:>">
+</head>
+<body>
+    <:p:>
+    [ -n "$HEADER" ] && echo "$HEADER"
+    render_menu MAIN_NAV
+    echo $CBN_MARKDOWNCONTENT
+    [ -n "$FOOTER" ] && echo "<footer><hr>$FOOTER</footer>"
+    <:x:>
+</body>
+</html>
+

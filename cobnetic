@@ -9,6 +9,29 @@ log() {
 }
 log "Read site rules from '$CBN_SITERULES'.\n"
 
+make_processor() {
+    # $1 = processor filename
+    cat >$1 <<"EOF"
+#!/bin/sh +x
+while true
+do 
+    PFILE=$(mktemp)
+    sed -n '/^<<:cbn:>>$/q;/.*/p' >>$PFILE
+    
+    . $PFILE
+    rm $PFILE
+    printf "\n<<:cbn:>>\n"
+done
+EOF
+    chmod +x $1
+}
+
+if [ ! -n "$CBN_PROCESSOR" ]
+then
+    PROCESSOR=$(mktemp)
+    CBN_PROCESSOR="$SHELL $PROCESSOR"
+fi
+CBN_EXT=${CBN_EXT:-dte}
 CBN_STATIC=${CBN_STATIC:-static}
 CBN_OUTPUTPATH=${CBN_OUTPUTPATH:-site}
 CBN_PAGES=${CBN_PAGES:-pages}
@@ -24,7 +47,7 @@ CBN_VARS="$CBN_VARS\
     CBN_OUTPUTPATH"
 
 enumerate() {
-    for p in "${CBN_PAGES}"/*.md.m4
+    for p in "${CBN_PAGES}"/*.md.$CBN_EXT
     do
         echo $p
     done
@@ -35,32 +58,79 @@ get_pagetitle() {
 }
 
 get_template() {
-    echo "${CBN_TEMPLATES}/$(awk 'NR==2' "$1")".html.m4
+    echo "${CBN_TEMPLATES}/$(awk 'NR==2' "$1")".html.$CBN_EXT
 }
 
-var2m4() {
-    echo "define(?:}$1{:?,?:}?:}$(eval echo \"\$$1\"){:?{:?)"
-}
-
-m4preamble() {
-    printf "changequote(?:},{:?)dnl\n"
+export_vars() {
     for e in $CBN_VARS 
     do
-        printf "$(var2m4 $e)dnl\n"
+        export $e
     done
+}
+
+start_processor() {
+    # $1 = send pipe
+    # $2 = receive pipe
+    $CBN_PROCESSOR <$1 >$2 &
+    exec 3>$1
+}
+
+make_sender() {
+    # $1 = sender filename
+    # $2 = send pipe
+    # $3 = receive pipe
+    # Sets up a small script that sends a program to the processor, reads the
+    # response, and exits.
+    cat >$1 <<EOF
+#!/bin/sh
+tee >$2
+printf "\n<<:cbn:>>\n" >$2
+<$3 sed -n '/^<<:cbn:>>$/q;/.*/p'
+EOF
+    chmod +x $1
+}
+
+stop_processor() {
+    # $1 = send pipe
+    # $2 = receive pipe
+    exec 3>&-
+    rm $1
+    rm $2
+    rm $3
+}
+
+process_begin() {
+    make_processor $PROCESSOR
+    SENDPIPE=$(mktemp -u)
+    mkfifo $SENDPIPE
+    RECVPIPE=$(mktemp -u)
+    mkfifo $RECVPIPE
+    start_processor $SENDPIPE $RECVPIPE
+    SENDER=$(mktemp)
+    make_sender $SENDER $SENDPIPE $RECVPIPE
+} 
+
+process_end() {
+    rm $SENDER
+    stop_processor $PROCESSOR $SENDPIPE $RECVPIPE
 }
 
 CBN_PAGES="$(enumerate)"
 
 log "Generating website in folder '$CBN_OUTPUTPATH'.\n\n"
+export_vars
 
 echo "$CBN_PAGES" | while read page
 do
     log "Processing page '$page'... "
     CBN_PAGETITLE="$(get_pagetitle "$page")"
-    CBN_MARKDOWNCONTENT="$(awk 'NR>3' "$page" | markdown -f fencedcode)"
-    
-    template="$(m4preamble)\n?:}$(cat "$(get_template "$page")"){:?"
+
+    process_begin
+        CBN_MARKDOWNCONTENT="\
+            $(awk 'NR>3' "$page" | dtepr $SENDER | markdown -f fencedcode)"
+    process_end
+
+    template="$(cat "$(get_template "$page")")"
 
     rel_name="${page#$CBN_PAGES/}"
     out_dir="$CBN_OUTPUTPATH/${rel_name%%[!/]*}"
@@ -68,8 +138,11 @@ do
     out_name="$(basename "$page"|cut -d. -f1).html"
 
     mkdir -p "$out_dir"
-    echo "$template" | m4 >"$out_dir/$out_name"
-    log "OK!\n"
+    process_begin
+        cat "$(get_template "$page")" | dtepr $SENDER >"$out_dir/$out_name"
+        ERR=$?
+    process_end
+    [ $ERR -eq 0 ] && log "OK!\n" || { log "\nError! Aborting.\n"; exit 1; }
     log "\tOutput: '$out_dir/$out_name'\n"
 done
 
