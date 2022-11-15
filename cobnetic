@@ -9,19 +9,30 @@ log() {
 }
 log "Read site rules from '$CBN_SITERULES'.\n"
 
-make_processor() {
+make_python_processor() {
     # $1 = processor filename
-    cat >$1 <<"EOF"
-#!/bin/sh +x
-while true
-do 
-    PFILE=$(mktemp)
-    sed -n '/^<<:cbn:>>$/q;/.*/p' >>$PFILE
-    
-    . $PFILE
-    rm $PFILE
-    printf "\n<<:cbn:>>\n"
-done
+    cat >$1 <<EOF
+#!/usr/bin/env python
+import sys
+from os import environ as env
+
+while True:
+    _program = ""
+    _reading = True
+    _outfile = sys.stdin.readline().strip()
+    if not _outfile: 
+        sys.exit(0)
+    while _reading:
+        _line = sys.stdin.readline()
+        if _line == "<<:cbn:>>\n":
+            _reading = False
+        elif _line == "":
+            sys.exit(0)
+        else:
+            _program += _line
+    with open(_outfile, "w") as sys.stdout:
+        exec(_program)
+        print("\n<<:cbn:>>\n")
 EOF
     chmod +x $1
 }
@@ -29,22 +40,13 @@ EOF
 if [ ! -n "$CBN_PROCESSOR" ]
 then
     PROCESSOR=$(mktemp)
-    CBN_PROCESSOR="$SHELL $PROCESSOR"
+    CBN_PROCESSOR="$PROCESSOR"
 fi
 CBN_EXT=${CBN_EXT:-dte}
 CBN_STATIC=${CBN_STATIC:-static}
 CBN_OUTPUTPATH=${CBN_OUTPUTPATH:-site}
 CBN_PAGES=${CBN_PAGES:-pages}
 CBN_TEMPLATES=${CBN_TEMPLATES:-templates}
-
-CBN_VARS="$CBN_VARS\
-    CBN_SITETITLE\
-    CBN_PAGETITLE\
-    CBN_DESCRIPTION\
-    CBN_PAGES\
-    CBN_MARKDOWNCONTENT\
-    CBN_STATIC\
-    CBN_OUTPUTPATH"
 
 enumerate() {
     for p in "${CBN_PAGES}"/*.md.$CBN_EXT
@@ -61,72 +63,88 @@ get_template() {
     echo "${CBN_TEMPLATES}/$(awk 'NR==2' "$1")".html.$CBN_EXT
 }
 
-export_vars() {
-    for e in $CBN_VARS 
-    do
-        export $e
-    done
-}
-
 start_processor() {
-    # $1 = send pipe
-    # $2 = receive pipe
-    $CBN_PROCESSOR <$1 >$2 &
-    exec 3>$1
+    # $1 = processor filename
+    # $2 = send pipe
+    (
+        <$2 $1
+        rm $1
+    ) &
 }
 
 make_sender() {
     # $1 = sender filename
     # $2 = send pipe
-    # $3 = receive pipe
     # Sets up a small script that sends a program to the processor, reads the
     # response, and exits.
     cat >$1 <<EOF
-#!/bin/sh
-tee >$2
-printf "\n<<:cbn:>>\n" >$2
-<$3 sed -n '/^<<:cbn:>>$/q;/.*/p'
+#!/usr/bin/env python
+import atexit
+import os
+import sys
+import tempfile
+
+response = os.path.join(tempfile.mkdtemp(), "out")
+
+os.mkfifo(response)
+
+@atexit.register
+def cleanup():
+    try:
+        os.unlink(response)
+    except:
+        pass
+
+with open("$2", "w") as f:
+    f.write("%s\n" % response)
+    f.write(sys.stdin.read())
+    f.write("\n<<:cbn:>>\n")
+
+with open(response, "r") as r:
+    for line in r:
+        if line == "<<:cbn:>>\n":
+            break
+        print(line)
 EOF
     chmod +x $1
 }
 
 stop_processor() {
-    # $1 = send pipe
-    # $2 = receive pipe
+    # $1 = processor filename
+    # $2 = send pipe
+    printf "\n<<:cbn:>>\n" >$2
     exec 3>&-
-    rm $1
+    while [ -f $1 ]; do :; done
     rm $2
-    rm $3
 }
 
 process_begin() {
-    make_processor $PROCESSOR
     SENDPIPE=$(mktemp -u)
     mkfifo $SENDPIPE
-    RECVPIPE=$(mktemp -u)
-    mkfifo $RECVPIPE
-    start_processor $SENDPIPE $RECVPIPE
+    exec 3<>$SENDPIPE
+    PROCESSOR=$(mktemp)
+    make_python_processor $PROCESSOR
+    start_processor $PROCESSOR $SENDPIPE
     SENDER=$(mktemp)
-    make_sender $SENDER $SENDPIPE $RECVPIPE
+    make_sender $SENDER $SENDPIPE
 } 
 
 process_end() {
+    stop_processor $PROCESSOR $SENDPIPE
     rm $SENDER
-    stop_processor $PROCESSOR $SENDPIPE $RECVPIPE
 }
 
-CBN_PAGES="$(enumerate)"
+export CBN_PAGES="$(enumerate)"
 
 log "Generating website in folder '$CBN_OUTPUTPATH'.\n\n"
-export_vars
 
 echo "$CBN_PAGES" | while read page
 do
     log "Processing page '$page'... "
-    CBN_PAGETITLE="$(get_pagetitle "$page")"
+    export CBN_PAGETITLE="$(get_pagetitle "$page")"
 
     process_begin
-        CBN_MARKDOWNCONTENT="\
+        export CBN_MARKDOWNCONTENT="\
             $(awk 'NR>3' "$page" | dtepr $SENDER | markdown -f fencedcode)"
     process_end
 
