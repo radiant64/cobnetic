@@ -13,8 +13,12 @@ make_python_processor() {
     # $1 = processor filename
     cat >$1 <<EOF
 #!/usr/bin/env python
+import os
 import sys
+import textwrap
 from os import environ as env
+
+sys.path.insert(0, os.getcwd())
 
 while True:
     _program = ""
@@ -31,7 +35,7 @@ while True:
         else:
             _program += _line
     with open(_outfile, "w") as sys.stdout:
-        exec(_program)
+        exec(textwrap.dedent(_program))
         print("\n<<:cbn:>>\n")
 EOF
     chmod +x $1
@@ -143,11 +147,6 @@ do
     log "Processing page '$page'... "
     export CBN_PAGETITLE="$(get_pagetitle "$page")"
 
-    process_begin
-        export CBN_MARKDOWNCONTENT="\
-            $(awk 'NR>3' "$page" | dtepr $SENDER | markdown -f fencedcode)"
-    process_end
-
     template="$(cat "$(get_template "$page")")"
 
     rel_name="${page#$CBN_PAGES}"
@@ -156,18 +155,25 @@ do
     out_name="$(basename "$page"|cut -d. -f1).html"
 
     mkdir -p "$out_dir"
+
+    process_begin
+        export CBN_MARKDOWNCONTENT="\
+            $(awk 'NR>3' "$page" | dtepr $SENDER | markdown -f fencedcode)"
+    process_end
+
     process_begin
         cat "$(get_template "$page")" | dtepr $SENDER >"$out_dir/$out_name"
         ERR=$?
     process_end
+
     [ $ERR -eq 0 ] && log "OK!\n" || { log "\nError! Aborting.\n"; exit 1; }
     log "\tOutput: '$out_dir/$out_name'\n"
 done
 
 if [ -e "$CBN_STATIC" ] 
 then
-    log "\nMoving static files in '$CBN_STATIC'...\n\n"
-    mv "$CBN_STATIC"
+    log "\nCopying static files in '$CBN_STATIC'...\n\n"
+    cp -r "$CBN_STATIC" "$CBN_OUTPUTPATH"
 else
     log "\nNo static file directory found, skipping.\n\n"
 fi
