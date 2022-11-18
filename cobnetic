@@ -110,7 +110,7 @@ with open(response, "r") as r:
     for line in r:
         if line == "<<:cbn:>>\n":
             break
-        print(line)
+        print(line, end='')
 EOF
     chmod +x $1
 }
