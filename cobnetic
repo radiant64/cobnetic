@@ -145,7 +145,7 @@ extract_metadata() {
         SYMBOL=$(echo "$line" | awk '{print $1}')
         if [ "$SYMBOL" != "..." ]
         then
-            export $SYMBOL=$(echo "$line"|cut -d\  -f2-)
+            export $SYMBOL="$(echo "$line"|cut -d\  -f2-)"
         fi
         HEADER_LINES=$(expr $HEADER_LINES + 1)
     done
@@ -169,8 +169,8 @@ do
     mkdir -p "$out_dir"
 
     process_begin
-        export CBN_MARKDOWNCONTENT="\
-            $(awk "NR>$HEADER_LINES" "$page" | dtepr $SENDER | $CBN_MARKDOWN)"
+        export CBN_MARKDOWNCONTENT="$(\
+            awk "NR>$HEADER_LINES" "$page" | dtepr $SENDER | $CBN_MARKDOWN)"
     process_end
 
     process_begin
