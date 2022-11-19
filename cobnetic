@@ -61,14 +61,6 @@ enumerate() {
     done
 }
 
-get_pagetitle() {
-    echo "$(awk 'NR==1' "$1")"
-}
-
-get_template() {
-    echo "${CBN_TEMPLATES}/$(awk 'NR==2' "$1")".html.$CBN_EXT
-}
-
 start_processor() {
     # $1 = processor filename
     # $2 = send pipe
@@ -140,6 +132,25 @@ process_end() {
     rm $SENDER
 }
 
+get_template_filename() {
+    echo "templates/$1.html.$CBN_EXT"
+}
+
+extract_metadata() {
+    HEADER_LINES=0
+    SYMBOL=""
+    while [ "$SYMBOL" != "..." ]
+    do
+        read line
+        SYMBOL=$(echo "$line" | awk '{print $1}')
+        if [ "$SYMBOL" != "..." ]
+        then
+            export $SYMBOL=$(echo "$line"|cut -d\  -f2-)
+        fi
+        HEADER_LINES=$(expr $HEADER_LINES + 1)
+    done
+}
+
 export CBN_PAGES="$(enumerate)"
 
 log "Generating website in folder '$CBN_OUTPUTPATH'.\n\n"
@@ -147,9 +158,8 @@ log "Generating website in folder '$CBN_OUTPUTPATH'.\n\n"
 echo "$CBN_PAGES" | while read page
 do
     log "Processing page '$page'... "
-    export CBN_PAGETITLE="$(get_pagetitle "$page")"
-
-    template="$(cat "$(get_template "$page")")"
+    extract_metadata <"$page"
+    tmpl_file="$(get_template_filename "$CBN_TEMPLATE")"
 
     rel_name="${page#$CBN_PAGES}"
     out_dir="${rel_name%/$(basename "$page")}"
@@ -160,11 +170,11 @@ do
 
     process_begin
         export CBN_MARKDOWNCONTENT="\
-            $(awk 'NR>3' "$page" | dtepr $SENDER | $CBN_MARKDOWN)"
+            $(awk "NR>$HEADER_LINES" "$page" | dtepr $SENDER | $CBN_MARKDOWN)"
     process_end
 
     process_begin
-        cat "$(get_template "$page")" | dtepr $SENDER >"$out_dir/$out_name"
+        cat "$tmpl_file" | dtepr $SENDER >"$out_dir/$out_name"
         ERR=$?
     process_end
 
