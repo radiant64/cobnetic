@@ -189,10 +189,10 @@ do
     tmpl_file="$(get_template_filename "$CBN_TEMPLATE")"
     rel_name="${page#$CBN_PAGES}"
     base_dir="${rel_name%/$(basename "$page")}"
-    base_dir="${base_dir#pages}"
-    out_dir="$CBN_OUTPUTPATH${base_dir}"
+    base_dir="${base_dir#pages/}"
+    out_dir="$CBN_OUTPUTPATH/${base_dir}"
     out_name="$(basename "$page"|cut -d. -f1).html"
-    export CBN_PAGEPATH="$base_dir$out_name"
+    export CBN_PAGEPATH="$base_dir/$out_name"
 
     mkdir -p "$out_dir"
 
