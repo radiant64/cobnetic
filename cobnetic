@@ -184,9 +184,9 @@ log "Generating website in folder '$CBN_OUTPUTPATH'.\n\n"
 echo "$CBN_PAGES" | while read page
 do
     log "Processing page '$page'... "
+(
     extract_metadata <"$page"
     tmpl_file="$(get_template_filename "$CBN_TEMPLATE")"
-
     rel_name="${page#$CBN_PAGES}"
     base_dir="${rel_name%/$(basename "$page")}"
     base_dir="${base_dir#pages}"
@@ -208,6 +208,7 @@ do
 
     [ $ERR -eq 0 ] && log "OK!\n" || { log "\nError! Aborting.\n"; exit 1; }
     log "\tOutput: '$out_dir/$out_name'\n"
+)
 done
 
 if [ -e "$CBN_STATIC" ] 
