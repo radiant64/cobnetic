@@ -1,5 +1,5 @@
-Another Page
-default
+CBN_PAGETITLE Another Page
+CBN_TEMPLATE default
 ...
 # This is another page on the example site.
 Not much to see here. I wanted to show you can use code fences, though:

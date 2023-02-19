@@ -1,7 +1,7 @@
 <:p:>
 render_menu() {
     index=0
-    while [ "$(eval echo \$$1${index}_TITLE)" ]
+    while [ -n "$(eval echo \$$1${index}_TITLE)" ]
     do
         title=$(eval echo \$$1${index}_TITLE)
         url=$(eval echo \$$1${index}_URL)
@@ -13,9 +13,10 @@ render_menu() {
 <html lang="en">
 <head>
     <meta charset="utf-8">
-    <title><:p:>printf $CBN_SITETITLE
+    <title><:p:>
+        printf "$CBN_SITETITLE"
         [ -n "$CBN_PAGETITLE" ] && printf " - $CBN_PAGETITLE"
-        <:x:></title>
+    <:x:></title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="description" content="<:p:>echo $CBN_DESCRIPTION<:x:>">
 </head>

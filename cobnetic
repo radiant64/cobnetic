@@ -9,7 +9,38 @@ log() {
 }
 log "Read site rules from '$CBN_SITERULES'.\n"
 
-make_python_processor() {
+shell_processor() {
+    # $1 = processor filename
+    cat >$1 <<EOF
+#!$SHELL
+while IFS= read -r __CBN_LINE
+do
+    if [ -z "\$__CBN_READING" ]
+    then
+        if [ -z "\$__CBN_LINE" ]
+        then
+            exit 0
+        fi
+        __CBN_OUTFILE="\$__CBN_LINE"
+        __CBN_PROGRAM="\$(mktemp)"
+        chmod +x "\$__CBN_PROGRAM"
+        __CBN_READING=1
+    elif [ "\$__CBN_LINE" = "<<:cbn:>>" ]
+    then
+        unset __CBN_READING
+        >>"\$__CBN_OUTFILE" . "\$__CBN_PROGRAM"
+        rm "\$__CBN_PROGRAM"
+        >>"\$__CBN_OUTFILE" printf "\n<<:cbn:>>\n"
+    else
+        echo "\$__CBN_LINE" >>"\$__CBN_PROGRAM"
+    fi
+done
+
+EOF
+    chmod +x $1
+}
+
+python_processor() {
     # $1 = processor filename
     cat >$1 <<EOF
 #!/usr/bin/env python
@@ -41,11 +72,7 @@ EOF
     chmod +x $1
 }
 
-if [ ! -n "$CBN_PROCESSOR" ]
-then
-    PROCESSOR=$(mktemp)
-    CBN_PROCESSOR="$PROCESSOR"
-fi
+CBN_PROCESSOR=${CBN_PROCESSOR:-shell_processor}
 CBN_EXT=${CBN_EXT:-dte}
 CBN_STATIC=${CBN_STATIC:-static}
 CBN_OUTPUTPATH=${CBN_OUTPUTPATH:-site}
@@ -83,7 +110,6 @@ import sys
 import tempfile
 
 response = os.path.join(tempfile.mkdtemp(), "out")
-
 os.mkfifo(response)
 
 @atexit.register
@@ -121,7 +147,7 @@ process_begin() {
     mkfifo $SENDPIPE
     exec 3<>$SENDPIPE
     PROCESSOR=$(mktemp)
-    make_python_processor $PROCESSOR
+    $CBN_PROCESSOR $PROCESSOR
     start_processor $PROCESSOR $SENDPIPE
     SENDER=$(mktemp)
     make_sender $SENDER $SENDPIPE
@@ -145,7 +171,7 @@ extract_metadata() {
         SYMBOL=$(echo "$line" | awk '{print $1}')
         if [ "$SYMBOL" != "..." ]
         then
-            export $SYMBOL="$(echo "$line"|cut -d\  -f2-)"
+            export $SYMBOL="$(echo "$line"|sed 's/^'"$SYMBOL"'[[:space:]]*//')"
         fi
         HEADER_LINES=$(expr $HEADER_LINES + 1)
     done
