@@ -192,7 +192,7 @@ do
     base_dir="${base_dir#pages}"
     out_dir="$CBN_OUTPUTPATH${base_dir}"
     out_name="$(basename "$page"|cut -d. -f1).html"
-    export CBN_PAGEPATH="$base_dir/$out_name"
+    export CBN_PAGEPATH="$base_dir$out_name"
 
     mkdir -p "$out_dir"
 
