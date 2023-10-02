@@ -46,10 +46,14 @@ environment variables:
 
 ## Dependencies
 
-[dtepr]: http://martinevald.net/software/dtepr.html
-[Discount]: http://www.pell.portland.or.us/~orc/Code/discount/
-[Python]: https://python.org/
+- [dtepr][dtepr]
+- [Discount][Discount]
+- [Python][Python]
 
 (Python is currently required for creating the `sender` that communicates with
 the `dtepr` processor.)
+
+[dtepr]: http://martinevald.net/software/dtepr.html
+[Discount]: http://www.pell.portland.or.us/~orc/Code/discount/
+[Python]: https://python.org/
 
