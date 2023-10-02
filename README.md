@@ -9,8 +9,9 @@ Pages are files containing a header with variable metadata, followed by content
 in Markdown format. The Markdown content will first be processed by running it
 through [Discount][Discount], after which [dtepr][dtepr] is responsible for
 inserting the page contents into the template. `dtepr` directives in pages are
-fully supported, and will be processed along with the directives in the
-template.
+fully supported, and will be processed prior to the Markdown. The directives in 
+the template will be processed separately in a second pass, as the generated
+page content is inserted.
 
 See the [example](example/) folder for a very small example site using a single
 template, and POSIX shell as the template processor.
