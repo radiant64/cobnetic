@@ -1,12 +1,15 @@
 #!/bin/sh
 #! vim: syntax=sh
 
+CBN_VERSION=0.1.0
+
 CBN_SITERULES=${CBN_SITECONFIG:-cobnetic-site.rules}
 . ./"$CBN_SITERULES"
 
 log() {
     [ ! -n "$CBN_SILENT" ] && printf "$1"
 }
+log "Cobnetic $CBN_VERSION\n\n"
 log "Read site rules from '$CBN_SITERULES'.\n"
 
 shell_processor() {
